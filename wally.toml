@@ -1,0 +1,13 @@
+[package]
+name = "loner1536/lync-utils"
+description = "Typed utilities for Lync: derive diff codecs, compress charm-sync payloads, build enums."
+version = "0.1.0"
+license = "MIT"
+authors = ["Loner1536"]
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+
+[dependencies]
+# Provided by the consumer at runtime; stubs/ back the standalone typecheck.
+# Lync = "loner1536/lync@x.y.z"
+# CharmSync = "littensy/charm-sync@x.y.z"
