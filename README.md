@@ -4,11 +4,11 @@ Typed [roblox-ts](https://roblox-ts.com) utilities for [Lync](https://github.com
 derive diff codecs, compress charm-sync payloads, and build enums.
 
 > **Not published to npm — on purpose.** lync-utils itself is not a fork; it's a small utility
-> package. But it depends on `Lync.nullable` (see [Requirements](#requirements)), which only exists
-> on **[Loner1536/lync](https://github.com/Loner1536/lync)** — a fork of Lync (Lync is currently
-> being rewritten, and the rewrite dropped `nullable`). Publishing a package that leans on a personal
-> Lync fork to the shared `@rbxts` npm scope isn't the right thing to do, so this installs straight
-> from GitHub instead. **You need that Lync fork** — see below.
+> package. But it depends on `Lync.nullable` (see [Requirements](#requirements)), which a Lync update
+> removed and only lives on **[Loner1536/lync](https://github.com/Loner1536/lync)** — a fork that
+> keeps it. (Lync is also being rewritten separately; that's not what dropped `nullable`.) Publishing
+> a package that leans on a personal Lync fork to the shared `@rbxts` npm scope isn't the right thing
+> to do, so this installs straight from GitHub instead. **You need that Lync fork** — see below.
 
 ## Install
 
