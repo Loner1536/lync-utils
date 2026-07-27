@@ -122,7 +122,9 @@ Builds a buffer-packed [charm-sync](https://github.com/littensy/charm) `SyncPayl
 signal's full-state codec, so charm replication compresses instead of riding `Lync.unknown` (roblox
 serialization). Built on `partialDeep` with charm's `None` as the sentinel.
 
-- Requires `CharmSync.config.fixArrays = true` (array diffs must be index maps).
+- Needs `CharmSync.config.fixArrays = true` so array diffs are index maps (not sparse arrays, which
+  Lync's dense array codec can't encode). **This is charm-sync's default** — you only need to act if
+  you explicitly set it to `false`.
 - The signal state is whatever your getter returns — commonly `{ [userId]: Data }`.
 
 **Full server + client setup**
@@ -131,7 +133,7 @@ import { charmCodec } from "@rbxts/lync-utils";
 import CharmSync from "@rbxts/charm-sync";
 import Lync from "@rbxts/lync";
 
-CharmSync.config.fixArrays = true;
+CharmSync.config.fixArrays = true; // default true — only needed if you disabled it
 
 const Data = Lync.struct({
     rank: Lync.int(0, 255),
