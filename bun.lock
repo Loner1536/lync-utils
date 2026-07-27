@@ -1,0 +1,32 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "@rbxts/lync-utils",
+      "devDependencies": {
+        "@rbxts/charm-sync": "^0.4.0",
+        "@rbxts/compiler-types": "^3.0.0-types.0",
+        "@rbxts/lync": "github:Loner1536/lync#main",
+        "@rbxts/types": "^1.0.800",
+        "typescript": "^5.5.0",
+      },
+      "peerDependencies": {
+        "@rbxts/charm-sync": "*",
+      },
+    },
+  },
+  "packages": {
+    "@rbxts/charm": ["@rbxts/charm@0.11.0", "", {}, "sha512-dqEJ48C4N/7GkAA6veMJyENKxNvme0GYiBV9T5+xPo4gGHJ+Qf8nt0ErTRB3dtMWpnxiPgVD0Xfyi0qEOPiryw=="],
+
+    "@rbxts/charm-sync": ["@rbxts/charm-sync@0.4.0", "", { "dependencies": { "@rbxts/charm": "^0.11.0" } }, "sha512-cBsyZ+Ra/bjeKWTELb1pZMAbjAYi272a7QL0ngZDmMphlzs1Zg6whIRFOuz9ERB8HKlMwZDtqxYM1f5ePaTadg=="],
+
+    "@rbxts/compiler-types": ["@rbxts/compiler-types@3.0.0-types.0", "", {}, "sha512-VGOHJPoL7+56NTatMGqQj3K7xWuzEV+aP4QD5vZiHu+bcff3kiTmtoadaF6NkJrmwfFAvbsd4Dg764ZjWNceag=="],
+
+    "@rbxts/lync": ["@axpecter/lync@github:Loner1536/lync#b63edb0", {}, "Loner1536-Lync-b63edb0", "sha512-HZVgt9tmCvi0qL1shNETRnoe2ZgR2izvY0ECownWxKRtxHPCtZ8zUSolKuMNUBcVMFbMjpaXEP/dbAkximVFYA=="],
+
+    "@rbxts/types": ["@rbxts/types@1.0.940", "", {}, "sha512-F5kSGN/V005xtTSI7+JYJB4NAGU7GJnYEm3I8XquB42ldIrphiFhQypuWOPU5ke0xqNKVK8y1EI9gAxylzbuew=="],
+
+    "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+  }
+}

@@ -1,4 +1,3 @@
-.vscode/
-sourcemap.json
-D-*/
-*.rbxm
+node_modules/
+out/
+*.tsbuildinfo
