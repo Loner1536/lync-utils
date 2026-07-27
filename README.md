@@ -145,11 +145,11 @@ const Data = Lync.struct({
 const PatchCodec = charmCodec(Lync.map(Lync.string, Data));
 const Patch = Lync.packet("PlayerData-Patch", PatchCodec);
 
-// --- server ---
-CharmSync.server.connect((player, payloads) => Patch.send(payloads as never, player));
+// --- server --- (no casts: charmCodec is typed Codec<SyncPayload[]>, matching connect/patch)
+CharmSync.server.connect((player, payloads) => Patch.send(payloads, player));
 
 // --- client ---
-Patch.on((payloads) => CharmSync.client.patch(payloads as never));
+Patch.on((payloads) => CharmSync.client.patch(payloads));
 ```
 
 **Signal state that isn't user-keyed** — `charmCodec` just needs the state codec, whatever its shape:
