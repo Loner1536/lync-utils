@@ -9,8 +9,7 @@
 	"author": "Loner1536",
 	"keywords": ["roblox", "roblox-ts", "lync", "charm", "charm-sync", "codec", "networking", "buffer"],
 	"scripts": {
-		"build": "rotor build",
-		"prepublishOnly": "rotor build"
+		"build": "rotor build"
 	},
 	"peerDependencies": {
 		"@rbxts/charm-sync": "*"

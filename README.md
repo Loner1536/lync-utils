@@ -3,56 +3,127 @@
 Typed [roblox-ts](https://roblox-ts.com) utilities for [Lync](https://github.com/Loner1536/lync) —
 derive diff codecs, compress charm-sync payloads, and build enums.
 
-```sh
-npm i @rbxts/lync-utils
-```
+> **Not published to npm — on purpose.** These utilities depend on a Lync build that still exposes
+> `Lync.nullable` (see [Requirements](#requirements)), which only exists on a **fork** of a Lync
+> version that's currently being rewritten. Publishing a fork-dependent package to the shared
+> `@rbxts` npm scope isn't the right thing to do, so this installs straight from GitHub instead.
 
-## Requirements
+## Install
 
-`partialDeep` and `charmCodec` need **`Lync.nullable(codec, sentinel)`** to encode a "value or
-removed-marker" as a present entry. Upstream [`@axpecter/lync`](https://www.npmjs.com/package/@axpecter/lync)
-(2.3.x) removed `nullable`, and its `custom` codec is fixed-size so it can't be rebuilt from the
-public API. Use a Lync build that still exposes `nullable` — e.g.
-[`Loner1536/lync`](https://github.com/Loner1536/lync):
+Both this package **and** the Lync fork it needs go in your `package.json` under the `@rbxts` scope
+(the import path must be `@rbxts/lync` / `@rbxts/lync-utils` for roblox-ts to resolve them):
 
 ```jsonc
 // package.json
-"@rbxts/lync": "github:Loner1536/lync#main"
+{
+    "dependencies": {
+        "@rbxts/lync": "github:Loner1536/lync#main",
+        "@rbxts/lync-utils": "github:Loner1536/lync-utils#main",
+        "@rbxts/charm-sync": "^0.4.0"
+    }
+}
 ```
+
+```sh
+npm install   # or bun install
+```
+
+The built Luau (`out/`) is committed, so nothing compiles on install.
+
+## Requirements
+
+`partialDeep` and `charmCodec` call **`Lync.nullable(codec, sentinel)`** — it encodes "a value **or**
+a removed-marker" as a *present* entry (plain `optional`/nil can't: nil in a map means "key absent =
+unchanged", not "removed"). Upstream [`@axpecter/lync`](https://www.npmjs.com/package/@axpecter/lync)
+(2.3.x) **removed** `nullable`, and its `custom` codec is fixed-size so it can't be rebuilt from the
+public API. That's why you need a fork that keeps it — [`Loner1536/lync`](https://github.com/Loner1536/lync).
 
 `enumFromKeys` has no such requirement.
 
-## Utilities
+---
 
-### `partialDeep(codec, sentinel)`
-Derives a **deep-partial "diff" codec** from a full-state codec — the shape structural diffs take:
+## `partialDeep(codec, sentinel)`
 
-- `struct` → each field `optional` (absent = unchanged)
-- `map` → `map(key, value | sentinel)` (missing key = unchanged, `sentinel` = removed)
-- `array` → `map(auto, value | sentinel)` (index-keyed; pairs with array→map diffing)
-- scalar → unchanged
+Derives a **deep-partial "diff" codec** from a full-state codec. It walks the codec and rewrites it
+into the shape a structural diff takes:
+
+| Full codec | Diff codec |
+| --- | --- |
+| `struct` | each field `optional` (absent field = unchanged) |
+| `map` | `map(key, value \| sentinel)` (missing key = unchanged, `sentinel` = removed) |
+| `array` | `map(auto, value \| sentinel)` (index-keyed; pairs with array→map diffing) |
+| scalar | unchanged |
 
 `sentinel` is whatever value your diff format uses to mark a removal.
 
+**Basic struct**
 ```ts
 import { partialDeep } from "@rbxts/lync-utils";
 import Lync from "@rbxts/lync";
 
+const REMOVED = { __removed: true };
+
 const Player = Lync.struct({
     health: Lync.int(0, 100),
+    mana: Lync.int(0, 100),
+});
+
+const PlayerDiff = partialDeep(Player, REMOVED);
+// encodes { health: 90 }  — mana omitted = unchanged
+```
+
+**Map with removals**
+```ts
+const Inventory = Lync.struct({
     items: Lync.map(Lync.string, Lync.int(0, 2 ** 31 - 1)),
 });
 
-const REMOVED = { __removed: true };
-const PlayerDiff = partialDeep(Player, REMOVED);
-// accepts { health: 90 } or { items: { potion: REMOVED } }
+const InventoryDiff = partialDeep(Inventory, REMOVED);
+// encodes { items: { potion: 5 } }         — add/update "potion"
+// encodes { items: { sword: REMOVED } }    — remove "sword"
+// encodes {}                               — nothing changed
 ```
 
-### `charmCodec(stateCodec)`
-Builds a buffer-packed [charm-sync](https://github.com/littensy/charm) `SyncPayload[]` codec from
-one signal's full-state codec — so charm replication compresses instead of riding `Lync.unknown`.
-Requires `CharmSync.config.fixArrays = true`. Built on `partialDeep`.
+**Array (becomes index-keyed)**
+```ts
+const Squad = Lync.struct({ members: Lync.array(Lync.string) });
+const SquadDiff = partialDeep(Squad, REMOVED);
+// encodes { members: { "1": "naruto" } }   — index 1 changed
+```
 
+**Nested**
+```ts
+const Save = Lync.struct({
+    rank: Lync.int(0, 255),
+    stats: Lync.struct({
+        level: Lync.struct({ current: Lync.int(0, 999), xp: Lync.int(0, 2 ** 31 - 1) }),
+    }),
+    items: Lync.map(Lync.string, Lync.int(0, 999)),
+});
+
+const SaveDiff = partialDeep(Save, REMOVED);
+// encodes { stats: { level: { xp: 1200 } } }  — only xp; siblings untouched
+```
+
+**Using charm-sync's `None` as the sentinel** (what `charmCodec` does internally)
+```ts
+import CharmSync from "@rbxts/charm-sync";
+const None = CharmSync.patch.nilToNone(undefined);
+const codec = partialDeep(Save, None);
+```
+
+---
+
+## `charmCodec(stateCodec)`
+
+Builds a buffer-packed [charm-sync](https://github.com/littensy/charm) `SyncPayload[]` codec from one
+signal's full-state codec, so charm replication compresses instead of riding `Lync.unknown` (roblox
+serialization). Built on `partialDeep` with charm's `None` as the sentinel.
+
+- Requires `CharmSync.config.fixArrays = true` (array diffs must be index maps).
+- The signal state is whatever your getter returns — commonly `{ [userId]: Data }`.
+
+**Full server + client setup**
 ```ts
 import { charmCodec } from "@rbxts/lync-utils";
 import CharmSync from "@rbxts/charm-sync";
@@ -62,40 +133,60 @@ CharmSync.config.fixArrays = true;
 
 const Data = Lync.struct({
     rank: Lync.int(0, 255),
+    stats: Lync.struct({ level: Lync.int(0, 999), xp: Lync.int(0, 2 ** 31 - 1) }),
     items: Lync.map(Lync.string, Lync.int(0, 2 ** 31 - 1)),
 });
 
-// the playerData signal's state is { [userId]: Data }
+// signal state is { [userId]: Data }
 const PatchCodec = charmCodec(Lync.map(Lync.string, Data));
-const Patch = Lync.packet("Data-Patch", PatchCodec);
+const Patch = Lync.packet("PlayerData-Patch", PatchCodec);
 
-// server: forward charm-sync payloads through the codec
+// --- server ---
 CharmSync.server.connect((player, payloads) => Patch.send(payloads as never, player));
 
-// client
+// --- client ---
 Patch.on((payloads) => CharmSync.client.patch(payloads as never));
 ```
 
-> Charm-sync sends over `Lync.unknown` (roblox serialization) by default. Routing its payloads
-> through `charmCodec` buffer-packs them — roughly **2–2.5x smaller** on typical player data, since
-> string keys (`"playerData-…"`, `"stats"`, `"items"`) become compact field encoding.
+**Signal state that isn't user-keyed** — `charmCodec` just needs the state codec, whatever its shape:
+```ts
+// a single global config signal: state is the object itself
+const Config = Lync.struct({ doubleXpEnabled: Lync.bool, eventId: Lync.int(0, 2 ** 16 - 1) });
+const ConfigPatch = Lync.packet("Config-Patch", charmCodec(Config));
+```
 
-### `enumFromKeys(object)`
-`Lync.enum` from a table's keys, sorted for a stable client/server ordering.
+> **Why it compresses:** charm's default `Lync.unknown` sends roblox-serialized tables — every number
+> is 9 bytes and every key is a string (`"playerData-…"`, `"stats"`, `"items"`). `charmCodec` packs
+> numbers into 1–4 bytes and drops the string keys, ~**2–2.5x smaller** on typical player data.
+
+---
+
+## `enumFromKeys(object)`
+
+`Lync.enum` from a table's keys, sorted so client and server agree on the ordering. The everyday
+"enum from a definitions table" pattern in one call.
 
 ```ts
 import { enumFromKeys } from "@rbxts/lync-utils";
+import Lync from "@rbxts/lync";
 
-const CharacterId = enumFromKeys(Definitions.Characters); // Lync.enum("naruto", "sasuke", ...)
+const CharacterDefs = { naruto: {}, sasuke: {}, sakura: {} };
+
+const CharacterId = enumFromKeys(CharacterDefs); // Lync.enum("naruto", "sakura", "sasuke")
+
+// use it like any codec — e.g. as a map key
+const Team = Lync.map(CharacterId, Lync.int(0, 100)); // per-character value
 ```
+
+---
 
 ## Notes
 
-- `partialDeep` reads Lync's private codec fields (`_schema`/`_isMap`/…). If a Lync release renames
-  them, that function is the one place to update.
+- `partialDeep` reads Lync's private codec fields (`_schema` / `_isMap` / `_isArray` / …). If a Lync
+  release renames them, that function is the one place to update.
 
 ## Development
 
 ```sh
-rotor build   # compile src/ -> out/
+rotor build   # compile src/ -> out/  (out/ is committed for GitHub installs)
 ```
