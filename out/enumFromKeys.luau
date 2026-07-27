@@ -1,7 +1,12 @@
 -- Compiled with rotor v2.2.1
 local TS = _G[script]
 local Lync = TS.import(script, TS.getModule(script, "@rbxts", "lync"))
---* `Lync.enum` from a table's keys, sorted for a stable client/server ordering. 
+--[[
+	*
+	 * `Lync.enum` from a table's keys, sorted for a stable client/server ordering. The key union
+	 * carries through: `enumFromKeys({ a: …, b: … })` is typed `Codec<"a" | "b">`.
+	 
+]]
 local function enumFromKeys(object)
 	local keys = {}
 	for key in object do
