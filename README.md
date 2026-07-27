@@ -56,7 +56,9 @@ into the shape a structural diff takes:
 | `array` | `map(auto, value \| sentinel)` (index-keyed; pairs with array→map diffing) |
 | scalar | unchanged |
 
-`sentinel` is whatever value your diff format uses to mark a removal.
+`sentinel` is whatever value your diff format uses to mark a removal. Fully generic —
+`partialDeep<T, S>(codec: Codec<T>, sentinel: S)` returns `Codec<Diff<T, S>>`, so the input's shape
+carries through to a precise diff type.
 
 **Basic struct**
 ```ts
@@ -168,7 +170,8 @@ const ConfigPatch = Lync.packet("Config-Patch", charmCodec(Config));
 ## `enumFromKeys(object)`
 
 `Lync.enum` from a table's keys, sorted so client and server agree on the ordering. The everyday
-"enum from a definitions table" pattern in one call.
+"enum from a definitions table" pattern in one call. The **key union carries through** —
+`enumFromKeys<T>(object: T)` returns `Codec<keyof T & string>`.
 
 ```ts
 import { enumFromKeys } from "@rbxts/lync-utils";
@@ -176,7 +179,7 @@ import Lync from "@rbxts/lync";
 
 const CharacterDefs = { naruto: {}, sasuke: {}, sakura: {} };
 
-const CharacterId = enumFromKeys(CharacterDefs); // Lync.enum("naruto", "sakura", "sasuke")
+const CharacterId = enumFromKeys(CharacterDefs); // Codec<"naruto" | "sasuke" | "sakura">, sorted
 
 // use it like any codec — e.g. as a map key
 const Team = Lync.map(CharacterId, Lync.int(0, 100)); // per-character value
