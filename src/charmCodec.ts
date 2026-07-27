@@ -13,12 +13,14 @@ const None = CharmSync.patch.nilToNone(undefined);
  * Requires `CharmSync.config.fixArrays = true` (array diffs must be index maps) and a Lync build
  * with `nullable`.
  */
-export function charmCodec<T>(stateCodec: Lync.Codec<T>): Lync.Codec<unknown> {
+export function charmCodec<T>(stateCodec: Lync.Codec<T>): Lync.Codec<Array<CharmSync.SyncPayload>> {
     const data = (inner: Lync.Codec<unknown>) => Lync.struct({ data: Lync.map(Lync.string, inner) });
+    // We know this encodes SyncPayload[]; typing it so lets callers wire charm's connect/patch
+    // with no casts. This is the one internal cast that removes casts at every call site.
     return Lync.array(
         Lync.tagged("type", {
             init: data(stateCodec),
             patch: data(Lync.nullable(partialDeep(stateCodec, None), None)),
         }),
-    ) as Lync.Codec<unknown>;
+    ) as unknown as Lync.Codec<Array<CharmSync.SyncPayload>>;
 }

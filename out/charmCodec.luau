@@ -20,6 +20,8 @@ local function charmCodec(stateCodec)
 			data = Lync.map(Lync.string, inner),
 		})
 	end
+	-- We know this encodes SyncPayload[]; typing it so lets callers wire charm's connect/patch
+	-- with no casts. This is the one internal cast that removes casts at every call site.
 	return Lync.array(Lync.tagged("type", {
 		init = data(stateCodec),
 		patch = data(Lync.nullable(partialDeep(stateCodec, None), None)),
