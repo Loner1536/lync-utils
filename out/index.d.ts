@@ -1,3 +1,4 @@
 export { partialDeep } from "./partialDeep";
-export { charmCodec } from "./charmCodec";
+export { replecsCodec } from "./replecsCodec";
+export type { SerdesTable } from "./replecsCodec";
 export { enumFromKeys } from "./enumFromKeys";
