@@ -330,10 +330,10 @@ values.
 Same comparison for `CharmSync` patches — a `PlayerPayload` state codec run through `charmCodec` vs. charm-sync's default
 `Lync.unknown` (roblox-serialized) proxy.
 
-| Mode | Patch #1 | Patch #2 | Combined wire |
+| Mode | init | patch | Combined wire |
 |---|---|---|---|
 | `charmCodec`-wrapped | codec 26 B / raw≈53 B | codec 93 B / raw≈248 B | **153 B** (2 remote calls) |
-| Default (`Lync.unknown` proxy) | — | — | **293 B** (1 remote call) |
+| Default (`Lync.unknown` proxy) | 70 B | 293 B | **363 B** (2 remote calls) |
 
 **Default charm-sync** — the raw patch as CharmSync ships it without a codec, roblox-serialized inside the buffer (every
 key/value pair carries its own length-prefix, hence the size):
@@ -361,9 +361,9 @@ key/value pair carries its own length-prefix, hence the size):
 }
 ```
 
-**Takeaway**: for the same patch data, `charmCodec` runs roughly **~45-50% smaller** on the wire than charm-sync's default
-`Lync.unknown` proxy — consistent with the "~2-2.5x smaller on typical player data" claim above, at the cost of needing a
-state codec that mirrors the store shape.
+**Takeaway**: for the same init+patch traffic, `charmCodec` runs roughly **~58% smaller** (153 B vs. 363 B, ~2.4x) on the
+wire than charm-sync's default `Lync.unknown` proxy — consistent with the "~2-2.5x smaller on typical player data" claim
+above, at the cost of needing a state codec that mirrors the store shape.
 
 ## Notes
 
