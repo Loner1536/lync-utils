@@ -7,8 +7,7 @@ import Lync from "@rbxts/lync";
  * Requires `CharmSync.config.fixArrays = true` (array diffs must be index maps) and a Lync build
  * with `nullable`.
  *
- * Not exported from the package barrel (`@rbxts/lync-utils`) on purpose: `require`ing this file
- * pulls in `@rbxts/charm-sync`, and most consumers of `replecsCodec`/`partialDeep`/`enumFromKeys`
- * don't have (or want) that dependency. Import it directly: `@rbxts/lync-utils/out/charmCodec`.
+ * Pulls in `@rbxts/charm-sync` at require-time -- an optional peer dependency of this package,
+ * add it yourself if you use `charmCodec`.
  */
 export declare function charmCodec<T>(stateCodec: Lync.Codec<T>): Lync.Codec<Array<CharmSync.SyncPayload>>;
