@@ -32,11 +32,9 @@ npm install   # or bun install
 The built Luau (`out/`) is committed, so nothing compiles on install.
 
 > `@rbxts/charm-sync` and `@rbxts/replecs` are **not** dependencies of this package — only
-> `@rbxts/lync` is required. `charmCodec` needs charm-sync and `replecsCodec` is duck-typed against
-> Replecs' serdes shape without importing it. Add whichever one your game actually uses. `charmCodec`
-> is also intentionally left out of the package barrel (import it from
-> `@rbxts/lync-utils/out/charmCodec`) so requiring `@rbxts/lync-utils` doesn't pull charm-sync in for
-> projects that only want `replecsCodec`/`partialDeep`/`enumFromKeys`.
+> `@rbxts/lync` is required. `charmCodec` needs charm-sync (an optional peer dependency: add
+> `@rbxts/charm-sync` yourself if you use `charmCodec`) and `replecsCodec` is duck-typed against
+> Replecs' serdes shape without importing it. Add whichever one your game actually uses.
 
 ## Requirements
 
@@ -211,23 +209,62 @@ world.set(components.owner, replecs.serdes, replecsCodec(Lync.inst, { refs: true
 
 ### What not to do with `replecsCodec`
 
-- **Don't wrap a growable map/array and expect partial updates.** Replecs calls
-  `serdes.serialize(value)` with the *whole new value* whenever jecs sees the component change —
-  there's no old-value diffing at this layer (unlike `charmCodec`, which owns the diff itself). A
-  `Lync.map`/`Lync.array` anywhere inside the codec means **every** change resends the **entire**
-  buffer. This is exactly what the unbounded-codec error is for. If a value grows/shrinks one key at
-  a time (inventory, buffs, sessions), give each key its own component or entity/pair instead — then
-  Replecs' normal per-component change detection diffs it for free, no codec tricks needed.
-- **Don't reach for `Lync.unknown`.** It has no `_size` (blocked by the same unbounded guard) and
-  roblox-serializes the value — the exact cost `replecsCodec`/`charmCodec` both exist to avoid. If
-  you're tempted to use it, write a real codec for that shape instead.
-- **Don't pass a delta codec expecting it to "just work" through Replecs.** The delta-codec guard
-  isn't overridable for a reason — there is no per-entity key available to keep the diff state
-  correct, and forcing it through would silently corrupt other entities' state, not just be
-  suboptimal.
-- **Don't use it for a component that already needs Replecs' own prediction (`custom_id`).** That's
-  an entity-identity concern Replecs handles at the `apply_updates` layer, not something a serdes
-  wrapper changes.
+**Growable map/array, expecting partial updates**
+```ts
+const inventory = Lync.struct({
+    items: Lync.map(Lync.string, Lync.int(0, 2 ** 31 - 1)),
+});
+
+world.set(components.inventory, replecs.serdes, replecsCodec(inventory));
+// throws: "codec has no fixed size (contains an array/map somewhere)"
+```
+Replecs calls `serdes.serialize(value)` with the *whole new value* whenever jecs sees the component
+change — there's no old-value diffing at this layer (unlike `charmCodec`, which owns the diff
+itself). Adding one potion would re-encode and resend every item in the map. Forcing it through:
+```ts
+replecsCodec(inventory, { unbounded: true }); // compiles, but 1 new item = whole map resent
+```
+Do this instead — give each item its own component/entity so Replecs' normal per-component change
+detection diffs it for free:
+```ts
+const itemSlot = world.component<{ id: string; count: number }>();
+// one entity per inventory slot; changing slot 3 only ever touches slot 3
+world.set(slotEntity, itemSlot, { id: "potion", count: 5 });
+world.set(itemSlot, replecs.serdes, replecsCodec(Lync.struct({ id: Lync.string, count: Lync.int(0, 999) })));
+```
+
+**Reaching for `Lync.unknown`**
+```ts
+world.set(components.settings, replecs.serdes, replecsCodec(Lync.unknown));
+// throws: same unbounded-codec error -- Lync.unknown has no _size
+```
+It roblox-serializes the value — the exact cost `replecsCodec`/`charmCodec` both exist to avoid.
+Write a real codec for the shape instead:
+```ts
+replecsCodec(Lync.struct({ musicVolume: Lync.float(0, 1), sfxEnabled: Lync.bool }));
+```
+
+**Delta codec passed straight through**
+```ts
+world.set(components.transform, replecs.serdes, replecsCodec(Lync.deltaVec3));
+// throws: "delta codecs keep per-connection state..."
+```
+There's no way to opt out of this one. `Lync.deltaVec3` keeps its diff cache keyed by a channel that
+Replecs never associates with a specific entity, so letting it through would silently mix entity A's
+delta state into entity B's. Use the plain codec instead:
+```ts
+replecsCodec(Lync.vect3);
+```
+
+**Using it where Replecs' own `custom_id` prediction belongs**
+```ts
+// wrong: trying to "fix" client-predicted entity flicker by tweaking the serdes
+world.set(components.projectile, replecs.serdes, replecsCodec(Lync.struct({ owner: Lync.inst }), { refs: true }));
+// serdes only controls wire packing -- it has no say over entity identity/prediction
+```
+Entity prediction/reconciliation is Replecs' `custom_id` + `apply_updates` mechanism, a different
+layer entirely. Wrapping a codec differently won't change how predicted entities get claimed or
+merged — see Replecs' own `custom_id` docs for that problem.
 
 ---
 
