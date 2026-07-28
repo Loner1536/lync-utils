@@ -31,10 +31,9 @@ npm install   # or bun install
 
 The built Luau (`out/`) is committed, so nothing compiles on install.
 
-> `@rbxts/charm-sync` and `@rbxts/replecs` are **not** dependencies of this package — only
-> `@rbxts/lync` is required. `charmCodec` needs charm-sync (an optional peer dependency: add
-> `@rbxts/charm-sync` yourself if you use `charmCodec`) and `replecsCodec` is duck-typed against
-> Replecs' serdes shape without importing it. Add whichever one your game actually uses.
+`@rbxts/lync` and `@rbxts/charm-sync` come along as dependencies of this package (`charmCodec`
+needs charm-sync). `@rbxts/replecs` is **not** a dependency — `replecsCodec` is duck-typed against
+Replecs' serdes shape without importing it, so add it yourself if you use `replecsCodec`.
 
 ## Requirements
 

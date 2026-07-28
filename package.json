@@ -11,18 +11,12 @@
 	"scripts": {
 		"build": "rotor build"
 	},
-	"peerDependencies": {
-		"@rbxts/charm-sync": "*"
-	},
-	"peerDependenciesMeta": {
-		"@rbxts/charm-sync": {
-			"optional": true
-		}
+	"dependencies": {
+		"@rbxts/charm-sync": "^0.4.0",
+		"@rbxts/lync": "github:Loner1536/lync#main"
 	},
 	"devDependencies": {
-		"@rbxts/charm-sync": "^0.4.0",
 		"@rbxts/compiler-types": "^3.0.0-types.0",
-		"@rbxts/lync": "github:Loner1536/lync#main",
 		"@rbxts/types": "^1.0.800",
 		"typescript": "^5.5.0"
 	}
