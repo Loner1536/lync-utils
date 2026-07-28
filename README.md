@@ -287,6 +287,84 @@ const Team = Lync.map(CharacterId, Lync.int(0, 100)); // per-character value
 
 ---
 
+## Benchmarks
+
+Captured from Jabby's Packet Profiler + `Replecs`/`CharmSync` server logs in a live Studio session, to show what
+`replecsCodec`/`charmCodec` actually buy you over the unpacked default. All three `replecsCodec` rows replicate the same
+`{ health: 500, pos: Vector2.new(12.5, -7.25) }` payload over the same `LyncRemotes.LyncReliable` remote; "wire bytes" is
+the full packet as seen by the Packet Chart (Replecs framing + entity/mask overhead included), "buf"/"variants" is the
+breakdown `Replecs.Server.collect_updates()` reports on the server.
+
+### `replecsCodec` vs. no serdes
+
+| Component | Serdes | buf | variants | wire bytes |
+|---|---|---|---|---|
+| `Test.LyncValue` | Lync codec → `replecsCodec` (`Lync.struct({ health: Lync.int(0, 999), pos: Lync.vec2 })`) | 23 B | ≈4 B | **51 B** |
+| `Test.SerdesValue` | hand-written `SerdesTable`, fixed `bytespan: 10` (`u16` + `f32` + `f32`) | 44 B | ≈4 B | **71 B** |
+| `Test.NoneValue` | none | 26 B | ≈55 B | **119 B** |
+
+**No serdes** falls back to Replecs' generic variant encoding — a tagged/dynamic representation of the value instead of a
+fixed layout:
+
+```
+{
+    health: 8 bytes = 500: 9 bytes,
+    pos: 5 bytes = Vector2.new(12.5, -7.25): 9 bytes,
+}
+```
+
+**`replecsCodec`-wrapped Lync codec** — `Lync.int(0, 999)` bit-packs `health`, `Lync.vec2` packs the vector; no per-field
+tagging, which is why it beats even the hand-written `bytespan: 10` `SerdesTable` despite doing more (range-checked int)
+per field:
+
+```
+buffer.new(1, 135, 22, 245, 20, 112, 108, 41, 56, 101, 114, 172, 161, 120, 224, 47, 41, ...)
+```
+
+**Takeaway**: any serdes beats none (119 B → 51-71 B), and letting `replecsCodec` derive the layout from a schema-aware
+Lync codec can beat a hand-rolled fixed-layout `SerdesTable`, since it isn't paying full-width `f32`/`u16` for bounded
+values.
+
+### `charmCodec` vs. default (JSON-string) charm-sync
+
+Same comparison for `CharmSync` patches — a `PlayerPayload` state codec run through `charmCodec` vs. charm-sync's default
+`Lync.unknown` (roblox-serialized) proxy.
+
+| Mode | Patch #1 | Patch #2 | Combined wire |
+|---|---|---|---|
+| `charmCodec`-wrapped | codec 26 B / raw≈53 B | codec 93 B / raw≈248 B | **153 B** (2 remote calls) |
+| Default (`Lync.unknown` proxy) | — | — | **293 B** (1 remote call) |
+
+**Default charm-sync** — the raw patch as CharmSync ships it without a codec, roblox-serialized inside the buffer (every
+key/value pair carries its own length-prefix, hence the size):
+
+```
+{
+    data: 6 bytes = {
+        ["playerData-2828974715"]: 23 bytes = {
+            ["2828974715"]: 12 bytes = {
+                items: 7 bytes = { test: 6 bytes = 100: 9 bytes },
+                stats: 7 bytes = {
+                    level: 7 bytes = { xp: 4 bytes = 0: 9 bytes, current: 9 bytes = 1: 9 bytes },
+                    playtime: 10 bytes = 0: 9 bytes,
+                },
+                teams: 7 bytes = {
+                    presets: 9 bytes = { {}, {}, {} },
+                    current: 9 bytes = { "test": 6 bytes },
+                    characters: 12 bytes = { test: 6 bytes = { ascension: 11 bytes = 0: 9 bytes, level: 7 bytes = 1: 9 bytes } },
+                    rank: 6 bytes = 0: 9 bytes,
+                },
+            },
+        },
+    },
+    type: 6 bytes = "patch": 7 bytes,
+}
+```
+
+**Takeaway**: for the same patch data, `charmCodec` runs roughly **~45-50% smaller** on the wire than charm-sync's default
+`Lync.unknown` proxy — consistent with the "~2-2.5x smaller on typical player data" claim above, at the cost of needing a
+state codec that mirrors the store shape.
+
 ## Notes
 
 - `partialDeep` reads Lync's private codec fields (`_schema` / `_isMap` / `_isArray` / …). If a Lync
